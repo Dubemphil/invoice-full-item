@@ -110,10 +110,10 @@ app.get('/scrape', async (req, res) => {
 
             console.log(`✅ Extracted Data for row ${rowIndex + 1}:`, invoiceData);
 
-            // Prepare update values
-            let updateValues = [[invoiceData.businessName, invoiceData.invoiceNumber]];
-            for (const item of invoiceData.items) {
-                updateValues.push([null, null, ...item]); // Ensure each item part is in its respective column
+            // Ensure first item list starts on the same row as business name and invoice number
+            let updateValues = [[invoiceData.businessName, invoiceData.invoiceNumber, ...invoiceData.items[0] || ['', '', '']]];
+            for (let i = 1; i < invoiceData.items.length; i++) {
+                updateValues.push([null, null, ...invoiceData.items[i]]); // Ensure each item part is in its respective column
             }
 
             // Update Sheet2
