@@ -39,7 +39,7 @@ app.get('/scrape', async (req, res) => {
         // Set page language to English
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
 
-        // Load spreadsheet data
+        // Load invoice links from Sheet1
         const sheetId = process.env.GOOGLE_SHEET_ID;
         const { data } = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
@@ -48,6 +48,7 @@ app.get('/scrape', async (req, res) => {
 
         const rows = data.values;
         let extractedData = [];
+        let currentRow = 1; // Start writing from row 1 in Sheet2
 
         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
             const invoiceLink = rows[rowIndex][0];
@@ -76,32 +77,29 @@ app.get('/scrape', async (req, res) => {
                 return {
                     businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
                     invoiceNumber: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4'),
-                    items: Array.from(document.querySelectorAll('.invoice-items-list > div')).map(item => ({
-                        name: item.querySelector('.invoice-item--title')?.innerText.trim() || 'N/A',
-                        ppUnit: item.querySelector('.invoice-item--unit-price')?.innerText.trim() || 'N/A',
-                        tPrice: item.querySelector('.invoice-item--price')?.innerText.trim() || 'N/A'
-                    }))
+                    items: Array.from(document.querySelectorAll('.invoice-items-list > div')).map(item =>
+                        item.querySelector('.invoice-item--title')?.innerText.trim() || 'N/A'
+                    )
                 };
             });
 
             console.log(`✅ Extracted Data for row ${rowIndex + 1}:`, invoiceData);
 
             // Prepare update values
-            const updateValues = [
-                [
-                    invoiceData.businessName,
-                    invoiceData.invoiceNumber,
-                    ...invoiceData.items.flatMap(item => [item.name, item.ppUnit, item.tPrice])
-                ]
-            ];
+            let updateValues = [[invoiceData.businessName, invoiceData.invoiceNumber]];
+            for (const item of invoiceData.items) {
+                updateValues.push([null, null, item]); // Place items in column C
+            }
 
+            // Update Sheet2
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `Sheet1!B${rowIndex + 1}:Z${rowIndex + 1}`,
+                range: `Sheet2!A${currentRow}:C${currentRow + updateValues.length - 1}`,
                 valueInputOption: 'RAW',
                 resource: { values: updateValues }
             });
 
+            currentRow += updateValues.length; // Move to the next available row
             extractedData.push(invoiceData);
         }
 
