@@ -80,12 +80,19 @@ app.get('/scrape', async (req, res) => {
                     return match ? match[0] : 'N/A';
                 };
 
+                const extractItems = () => {
+                    const nodesSnapshot = document.evaluate("//div[contains(@class, 'invoice-item--title')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                    let items = [];
+                    for (let i = 0; i < nodesSnapshot.snapshotLength; i++) {
+                        items.push(nodesSnapshot.snapshotItem(i).innerText.trim());
+                    }
+                    return items;
+                };
+
                 return {
                     businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
                     invoiceNumber: extractInvoiceNumber(),
-                    items: Array.from(document.querySelectorAll('.invoice-items-list > div')).map(item =>
-                        item.querySelector('.invoice-item--title')?.innerText.trim() || 'N/A'
-                    )
+                    items: extractItems()
                 };
             });
 
