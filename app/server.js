@@ -74,9 +74,15 @@ app.get('/scrape', async (req, res) => {
                     return element ? element.innerText.trim() : 'N/A';
                 };
 
+                const extractInvoiceNumber = () => {
+                    const fullText = getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4');
+                    const match = fullText.match(/\d+\/\d+/);
+                    return match ? match[0] : 'N/A';
+                };
+
                 return {
                     businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
-                    invoiceNumber: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4'),
+                    invoiceNumber: extractInvoiceNumber(),
                     items: Array.from(document.querySelectorAll('.invoice-items-list > div')).map(item =>
                         item.querySelector('.invoice-item--title')?.innerText.trim() || 'N/A'
                     )
