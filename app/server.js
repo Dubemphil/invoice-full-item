@@ -57,10 +57,19 @@ app.get('/scrape', async (req, res) => {
 
             console.log(`🔄 Processing row ${rowIndex + 1} - ${invoiceLink}`);
 
-            try {
-                await page.goto(invoiceLink, { waitUntil: 'networkidle2', timeout: 30000 });
-            } catch (navError) {
-                console.error(`❌ Failed to navigate to ${invoiceLink}:`, navError);
+            let navigationSuccess = false;
+            for (let attempt = 1; attempt <= 3; attempt++) { // Retry mechanism
+                try {
+                    await page.goto(invoiceLink, { waitUntil: 'networkidle2', timeout: 30000 });
+                    navigationSuccess = true;
+                    break;
+                } catch (navError) {
+                    console.error(`❌ Attempt ${attempt} - Failed to navigate to ${invoiceLink}:`, navError);
+                }
+            }
+
+            if (!navigationSuccess) {
+                console.error(`❌ Skipping ${invoiceLink} after multiple failed attempts`);
                 continue;
             }
 
@@ -96,7 +105,7 @@ app.get('/scrape', async (req, res) => {
                         }
                         currentNode = itemNodes.iterateNext();
                     }
-                    return items;
+                    return items.length > 0 ? items : [['N/A', 'N/A', 'N/A']];
                 };
 
                 return {
@@ -110,6 +119,11 @@ app.get('/scrape', async (req, res) => {
             });
 
             console.log(`✅ Extracted Data for row ${rowIndex + 1}:`, invoiceData);
+
+            if (invoiceData.businessName === 'N/A' && invoiceData.invoiceNumber === 'N/A') {
+                console.warn(`⚠️ No valid data extracted from ${invoiceLink}`);
+                continue;
+            }
 
             // Update Sheet2 with invoice items
             let updateValuesSheet2 = [[invoiceData.businessName, invoiceData.invoiceNumber, ...invoiceData.items[0] || ['', '', '']]];
