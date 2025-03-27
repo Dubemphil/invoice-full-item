@@ -91,7 +91,11 @@ app.get('/scrape', async (req, res) => {
                     let currentNode = itemNodes.iterateNext();
                     while (currentNode) {
                         const itemParts = currentNode.innerText.trim().split('\n');
-                        items.push(itemParts);
+                        if (itemParts.length >= 3) {
+                            items.push([itemParts[0], itemParts[1], itemParts[2]]); // Ensure proper formatting
+                        } else {
+                            items.push([itemParts[0], itemParts[1] || '', '']); // Handle missing price/total
+                        }
                         currentNode = itemNodes.iterateNext();
                     }
                     return items;
@@ -109,13 +113,13 @@ app.get('/scrape', async (req, res) => {
             // Prepare update values
             let updateValues = [[invoiceData.businessName, invoiceData.invoiceNumber]];
             for (const item of invoiceData.items) {
-                updateValues.push([null, null, ...item]); // Spread item details into columns
+                updateValues.push([null, null, ...item]); // Ensure each item part is in its respective column
             }
 
             // Update Sheet2
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `Sheet2!A${currentRow}:Z${currentRow + updateValues.length - 1}`,
+                range: `Sheet2!A${currentRow}:E${currentRow + updateValues.length - 1}`,
                 valueInputOption: 'RAW',
                 resource: { values: updateValues }
             });
