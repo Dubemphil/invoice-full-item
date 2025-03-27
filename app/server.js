@@ -90,7 +90,8 @@ app.get('/scrape', async (req, res) => {
                     const itemNodes = document.evaluate("/html/body/app-root/app-verify-invoice/div/section[3]/div/ul/li/ul/li", document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
                     let currentNode = itemNodes.iterateNext();
                     while (currentNode) {
-                        items.push(currentNode.innerText.trim());
+                        const itemParts = currentNode.innerText.trim().split('\n');
+                        items.push(itemParts);
                         currentNode = itemNodes.iterateNext();
                     }
                     return items;
@@ -108,13 +109,13 @@ app.get('/scrape', async (req, res) => {
             // Prepare update values
             let updateValues = [[invoiceData.businessName, invoiceData.invoiceNumber]];
             for (const item of invoiceData.items) {
-                updateValues.push([null, null, item]); // Place items in column C
+                updateValues.push([null, null, ...item]); // Spread item details into columns
             }
 
             // Update Sheet2
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `Sheet2!A${currentRow}:C${currentRow + updateValues.length - 1}`,
+                range: `Sheet2!A${currentRow}:Z${currentRow + updateValues.length - 1}`,
                 valueInputOption: 'RAW',
                 resource: { values: updateValues }
             });
