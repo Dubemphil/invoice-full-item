@@ -71,7 +71,7 @@ app.get('/scrape', async (req, res) => {
             const invoiceData = await page.evaluate(() => {
                 const getText = (xpath) => {
                     const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    return element ? element.innerText.trim() : 'N/A';
+                    return element ? element.innerText.trim().replace('TVSH', 'VAT') : 'N/A';
                 };
 
                 const extractInvoiceNumber = () => {
@@ -90,7 +90,7 @@ app.get('/scrape', async (req, res) => {
                     const itemNodes = document.evaluate("/html/body/app-root/app-verify-invoice/div/section[3]/div/ul/li/ul/li", document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
                     let currentNode = itemNodes.iterateNext();
                     while (currentNode) {
-                        const itemParts = currentNode.innerText.trim().split('\n');
+                        const itemParts = currentNode.innerText.trim().replace('TVSH', 'VAT').split('\n');
                         if (itemParts.length >= 3) {
                             items.push([itemParts[0], itemParts[1], itemParts[2]]); // Ensure proper formatting
                         } else {
