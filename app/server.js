@@ -48,7 +48,7 @@ app.get('/scrape', async (req, res) => {
 
         const rows = data.values;
         let extractedData = [];
-        let currentRow = 1; // Start writing from row 1 in Sheet2
+        let currentRow = 2; // Start writing from row 2 in Sheet2
 
         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
             const invoiceLink = rows[rowIndex][0];
@@ -68,31 +68,36 @@ app.get('/scrape', async (req, res) => {
 
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            const invoiceData = await page.evaluate(() => {
-                const getText = (xpath) => {
+            const invoiceData = await page.evaluate(async () => {
+                const getText = async (xpath) => {
                     const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                     return element ? element.innerText.trim() : 'N/A';
                 };
 
-                const extractInvoiceNumber = () => {
-                    const fullText = getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4');
+                const extractInvoiceNumber = async () => {
+                    const fullText = await getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4');
                     const match = fullText.match(/\d+\/\d+/);
                     return match ? match[0] : 'N/A';
                 };
 
-                const extractItems = () => {
+                const extractItems = async () => {
                     let items = [];
-                    const itemNodes = document.evaluate("//div[contains(@class, 'invoice-items-list')]//div[contains(@class, 'invoice-item')]/div[contains(@class, 'invoice-item--title')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-                    for (let i = 0; i < itemNodes.snapshotLength; i++) {
-                        items.push(itemNodes.snapshotItem(i).innerText.trim());
+                    const showMoreBtn = document.querySelector("button.show-more");
+                    if (showMoreBtn) {
+                        showMoreBtn.click(); // Click "Show All" if available
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for items to load
                     }
+                    
+                    document.querySelectorAll("section:nth-of-type(3) .invoice-item--title").forEach(item => {
+                        items.push(item.innerText.trim());
+                    });
                     return items;
                 };
 
                 return {
-                    businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
-                    invoiceNumber: extractInvoiceNumber(),
-                    items: extractItems()
+                    businessName: await getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
+                    invoiceNumber: await extractInvoiceNumber(),
+                    items: await extractItems()
                 };
             });
 
