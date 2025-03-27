@@ -82,15 +82,17 @@ app.get('/scrape', async (req, res) => {
 
                 const extractItems = () => {
                     let items = [];
-                    
                     const showMoreBtn = document.querySelector("button.show-more");
                     if (showMoreBtn) {
                         showMoreBtn.click(); // Click "Show All" if available
                     }
                     
-                    document.querySelectorAll("/html/body/app-root/app-verify-invoice/div/section[3]/div/ul/li/ul/li").forEach(item => {
-                        items.push(item.innerText.trim());
-                    });
+                    const itemNodes = document.evaluate("/html/body/app-root/app-verify-invoice/div/section[3]/div/ul/li/ul/li", document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
+                    let currentNode = itemNodes.iterateNext();
+                    while (currentNode) {
+                        items.push(currentNode.innerText.trim());
+                        currentNode = itemNodes.iterateNext();
+                    }
                     return items;
                 };
 
