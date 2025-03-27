@@ -35,11 +35,8 @@ app.get('/scrape', async (req, res) => {
             ]
         });
         const page = await browser.newPage();
-
-        // Set page language to English
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
 
-        // Load invoice links from Sheet1
         const sheetId = process.env.GOOGLE_SHEET_ID;
         const { data } = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
@@ -48,7 +45,8 @@ app.get('/scrape', async (req, res) => {
 
         const rows = data.values;
         let extractedData = [];
-        let currentRow = 2; // Start writing from row 2 in Sheet2
+        let currentRowSheet2 = 2;
+        let currentRowSheet3 = 2;
 
         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
             const invoiceLink = rows[rowIndex][0];
@@ -84,7 +82,7 @@ app.get('/scrape', async (req, res) => {
                     let items = [];
                     const showMoreBtn = document.querySelector("button.show-more");
                     if (showMoreBtn) {
-                        showMoreBtn.click(); // Click "Show All" if available
+                        showMoreBtn.click();
                     }
                     
                     const itemNodes = document.evaluate("/html/body/app-root/app-verify-invoice/div/section[3]/div/ul/li/ul/li", document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
@@ -92,9 +90,9 @@ app.get('/scrape', async (req, res) => {
                     while (currentNode) {
                         const itemParts = currentNode.innerText.trim().replace('TVSH', 'VAT').split('\n');
                         if (itemParts.length >= 3) {
-                            items.push([itemParts[0], itemParts[1], itemParts[2]]); // Ensure proper formatting
+                            items.push([itemParts[0], itemParts[1], itemParts[2]]);
                         } else {
-                            items.push([itemParts[0], itemParts[1] || '', '']); // Handle missing price/total
+                            items.push([itemParts[0], itemParts[1] || '', '']);
                         }
                         currentNode = itemNodes.iterateNext();
                     }
@@ -104,27 +102,46 @@ app.get('/scrape', async (req, res) => {
                 return {
                     businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
                     invoiceNumber: extractInvoiceNumber(),
-                    items: extractItems()
+                    items: extractItems(),
+                    grandTotal: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[2]/h1'),
+                    vat: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[2]/small[2]/strong'),
+                    invoiceType: getText('/html/body/app-root/app-verify-invoice/div/section[2]/div/div/div/div[5]/p')
                 };
             });
 
             console.log(`✅ Extracted Data for row ${rowIndex + 1}:`, invoiceData);
 
-            // Ensure first item list starts on the same row as business name and invoice number
-            let updateValues = [[invoiceData.businessName, invoiceData.invoiceNumber, ...invoiceData.items[0] || ['', '', '']]];
+            // Update Sheet2 with invoice items
+            let updateValuesSheet2 = [[invoiceData.businessName, invoiceData.invoiceNumber, ...invoiceData.items[0] || ['', '', '']]];
             for (let i = 1; i < invoiceData.items.length; i++) {
-                updateValues.push([null, null, ...invoiceData.items[i]]); // Ensure each item part is in its respective column
+                updateValuesSheet2.push([null, null, ...invoiceData.items[i]]);
             }
 
-            // Update Sheet2
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `Sheet2!A${currentRow}:E${currentRow + updateValues.length - 1}`,
+                range: `Sheet2!A${currentRowSheet2}:E${currentRowSheet2 + updateValuesSheet2.length - 1}`,
                 valueInputOption: 'RAW',
-                resource: { values: updateValues }
+                resource: { values: updateValuesSheet2 }
             });
+            currentRowSheet2 += updateValuesSheet2.length;
 
-            currentRow += updateValues.length; // Move to the next available row
+            // Update Sheet3 with invoice summary
+            const updateValuesSheet3 = [[
+                invoiceData.businessName,
+                invoiceData.invoiceNumber,
+                invoiceData.grandTotal,
+                invoiceData.vat,
+                invoiceData.invoiceType
+            ]];
+
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: sheetId,
+                range: `Sheet3!A${currentRowSheet3}:E${currentRowSheet3}`,
+                valueInputOption: 'RAW',
+                resource: { values: updateValuesSheet3 }
+            });
+            currentRowSheet3++;
+
             extractedData.push(invoiceData);
         }
 
