@@ -68,7 +68,7 @@ app.get('/scrape', async (req, res) => {
 
             await page.waitForTimeout(3000);
 
-            const invoiceData = await page.evaluate(() => {
+            const invoiceData = await page.evaluate(async () => {
                 const getText = async (xpath) => {
                     const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                     return element ? element.innerText.trim() : 'N/A';
@@ -82,7 +82,12 @@ app.get('/scrape', async (req, res) => {
 
                 const extractItems = async () => {
                     let items = [];
-                    const itemNodes = document.evaluate("//div[contains(@class, 'invoice-items-list')]//div[contains(@class, 'invoice-item')]/div[contains(@class, 'invoice-item--title')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                    const showMoreBtn = document.querySelector("button.show-more");
+                    if (showMoreBtn) showMoreBtn.click(); // Click "Show All" if available
+                    
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for items to load
+                    
+                    const itemNodes = document.evaluate("//section[3]/div//div[contains(@class, 'invoice-item')]/div[contains(@class, 'invoice-item--title')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
                     for (let i = 0; i < itemNodes.snapshotLength; i++) {
                         items.push(itemNodes.snapshotItem(i).innerText.trim());
                     }
