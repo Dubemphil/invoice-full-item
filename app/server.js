@@ -45,8 +45,8 @@ app.get('/scrape', async (req, res) => {
 
         const rows = data.values;
         let extractedData = [];
-        let currentRowsheet3 = 2;
-        let currentRowsheet2 = 2;
+        let currentRowSheet2 = 2;
+        let currentRowSheet3 = 2;
 
         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
             const invoiceLink = rows[rowIndex][0];
@@ -111,22 +111,22 @@ app.get('/scrape', async (req, res) => {
 
             console.log(`✅ Extracted Data for row ${rowIndex + 1}:`, invoiceData);
 
-            // Update sheet3 with invoice items
-            let updateValuessheet3 = [[invoiceData.businessName, invoiceData.invoiceNumber, ...invoiceData.items[0] || ['', '', '']]];
+            // Update Sheet2 with invoice items
+            let updateValuesSheet2 = [[invoiceData.businessName, invoiceData.invoiceNumber, ...invoiceData.items[0] || ['', '', '']]];
             for (let i = 1; i < invoiceData.items.length; i++) {
-                updateValuessheet3.push([null, null, ...invoiceData.items[i]]);
+                updateValuesSheet2.push([null, null, ...invoiceData.items[i]]);
             }
 
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `sheet3!A${currentRowsheet3}:E${currentRowsheet3 + updateValuessheet3.length - 1}`,
+                range: `Sheet2!A${currentRowSheet2}:E${currentRowSheet2 + updateValuesSheet2.length - 1}`,
                 valueInputOption: 'RAW',
-                resource: { values: updateValuessheet3 }
+                resource: { values: updateValuesSheet2 }
             });
-            currentRowsheet3 += updateValuessheet3.length;
+            currentRowSheet2 += updateValuesSheet2.length;
 
-            // Update sheet2 with invoice summary
-            const updateValuessheet2 = [[
+            // Update Sheet3 with invoice summary
+            const updateValuesSheet3 = [[
                 invoiceData.businessName,
                 invoiceData.invoiceNumber,
                 invoiceData.grandTotal,
@@ -136,11 +136,11 @@ app.get('/scrape', async (req, res) => {
 
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `sheet2!A${currentRowsheet2}:E${currentRowsheet2}`,
+                range: `Sheet3!A${currentRowSheet3}:E${currentRowSheet3}`,
                 valueInputOption: 'RAW',
-                resource: { values: updateValuessheet2 }
+                resource: { values: updateValuesSheet3 }
             });
-            currentRowsheet2++;
+            currentRowSheet3++;
 
             extractedData.push(invoiceData);
         }
