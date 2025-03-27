@@ -82,13 +82,14 @@ app.get('/scrape', async (req, res) => {
 
                 const extractItems = async () => {
                     let items = [];
+                    
                     const showMoreBtn = document.querySelector("button.show-more");
                     if (showMoreBtn) {
                         showMoreBtn.click(); // Click "Show All" if available
-                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for items to load
+                        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for items to load
                     }
                     
-                    document.querySelectorAll("section:nth-of-type(3) .invoice-item--title").forEach(item => {
+                    document.querySelectorAll("section:nth-of-type(3) div p:first-child").forEach(item => {
                         items.push(item.innerText.trim());
                     });
                     return items;
