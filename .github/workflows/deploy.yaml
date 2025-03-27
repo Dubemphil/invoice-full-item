@@ -38,7 +38,7 @@ jobs:
     
       - name: Deploy to Cloud Run 
         run: |
-          gcloud run deploy invoice-scraper \
+          gcloud run deploy invoice-full-item \
             --image docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/invoice-full-item:${{ github.sha }} \
             --platform managed \
             --region us-central1 \
