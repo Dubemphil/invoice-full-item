@@ -73,46 +73,31 @@ app.get('/scrape', async (req, res) => {
                     return element ? element.innerText.trim() : 'N/A';
                 };
 
-                const extractVAT = (xpath) => {
-                    const fullText = getText(xpath);
-                    const match = fullText.match(/\d+[.,]?\d*\s*LEK/);
-                    return match ? match[0] : 'N/A';
-                };
-
-                const extractInvoiceNumber = (xpath) => {
-                    const fullText = getText(xpath);
-                    const match = fullText.match(/\d+\/\d+/);
-                    return match ? match[0] : 'N/A';
-                };
-
-                const translateInvoiceType = (text) => {
-                    return text.includes('Faturë pa para në dorë') ? 'Non-cash invoice' : text;
-                };
-
                 return {
                     businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
-                    invoiceNumber: extractInvoiceNumber('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4'),
-                    grandTotal: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[2]/h1'),
-                    vat: extractVAT('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[2]/small[2]/strong'),
-                    invoiceType: translateInvoiceType(getText('/html/body/app-root/app-verify-invoice/div/section[2]/div/div/div/div[5]/p'))
+                    invoiceNumber: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4'),
+                    items: Array.from(document.querySelectorAll('.invoice-items-list > div')).map(item => ({
+                        name: item.querySelector('.invoice-item--title')?.innerText.trim() || 'N/A',
+                        ppUnit: item.querySelector('.invoice-item--unit-price')?.innerText.trim() || 'N/A',
+                        tPrice: item.querySelector('.invoice-item--price')?.innerText.trim() || 'N/A'
+                    }))
                 };
             });
 
             console.log(`✅ Extracted Data for row ${rowIndex + 1}:`, invoiceData);
 
+            // Prepare update values
             const updateValues = [
                 [
                     invoiceData.businessName,
                     invoiceData.invoiceNumber,
-                    invoiceData.grandTotal,
-                    invoiceData.vat,
-                    invoiceData.invoiceType
+                    ...invoiceData.items.flatMap(item => [item.name, item.ppUnit, item.tPrice])
                 ]
             ];
 
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `Sheet1!B${rowIndex + 1}:F${rowIndex + 1}`,
+                range: `Sheet1!B${rowIndex + 1}:Z${rowIndex + 1}`,
                 valueInputOption: 'RAW',
                 resource: { values: updateValues }
             });
