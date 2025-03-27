@@ -22,8 +22,8 @@ jobs:
       - name: Build and Push Docker Image to Docker Hub
         run: |
           IMAGE_TAG=${{ github.sha }}
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/invoice-scraper:$IMAGE_TAG .
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/invoice-scraper:$IMAGE_TAG
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/invoice-full-item:$IMAGE_TAG .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/invoice-full-item:$IMAGE_TAG
 
       - name: Authenticate with Google Cloud
         uses: google-github-actions/auth@v2
@@ -39,7 +39,7 @@ jobs:
       - name: Deploy to Cloud Run 
         run: |
           gcloud run deploy invoice-scraper \
-            --image docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/invoice-scraper:${{ github.sha }} \
+            --image docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/invoice-full-item:${{ github.sha }} \
             --platform managed \
             --region us-central1 \
             --allow-unauthenticated \
