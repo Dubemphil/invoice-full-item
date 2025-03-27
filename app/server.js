@@ -68,37 +68,36 @@ app.get('/scrape', async (req, res) => {
 
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            const invoiceData = await page.evaluate(async () => {
-                const getText = async (xpath) => {
+            const invoiceData = await page.evaluate(() => {
+                const getText = (xpath) => {
                     const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                     return element ? element.innerText.trim() : 'N/A';
                 };
 
-                const extractInvoiceNumber = async () => {
-                    const fullText = await getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4');
+                const extractInvoiceNumber = () => {
+                    const fullText = getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4');
                     const match = fullText.match(/\d+\/\d+/);
                     return match ? match[0] : 'N/A';
                 };
 
-                const extractItems = async () => {
+                const extractItems = () => {
                     let items = [];
                     
                     const showMoreBtn = document.querySelector("button.show-more");
                     if (showMoreBtn) {
                         showMoreBtn.click(); // Click "Show All" if available
-                        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for items to load
                     }
                     
-                    document.querySelectorAll("section:nth-of-type(3) div p:first-child").forEach(item => {
+                    document.querySelectorAll("/html/body/app-root/app-verify-invoice/div/section[3]/div/ul/li/ul/li").forEach(item => {
                         items.push(item.innerText.trim());
                     });
                     return items;
                 };
 
                 return {
-                    businessName: await getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
-                    invoiceNumber: await extractInvoiceNumber(),
-                    items: await extractItems()
+                    businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
+                    invoiceNumber: extractInvoiceNumber(),
+                    items: extractItems()
                 };
             });
 
