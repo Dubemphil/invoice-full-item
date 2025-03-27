@@ -81,10 +81,10 @@ app.get('/scrape', async (req, res) => {
                 };
 
                 const extractItems = () => {
-                    const nodesSnapshot = document.evaluate("//div[contains(@class, 'invoice-item--title')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
                     let items = [];
-                    for (let i = 0; i < nodesSnapshot.snapshotLength; i++) {
-                        items.push(nodesSnapshot.snapshotItem(i).innerText.trim());
+                    const itemNodes = document.evaluate("//div[contains(@class, 'invoice-items-list')]//div[contains(@class, 'invoice-item')]/div[contains(@class, 'invoice-item--title')]", document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                    for (let i = 0; i < itemNodes.snapshotLength; i++) {
+                        items.push(itemNodes.snapshotItem(i).innerText.trim());
                     }
                     return items;
                 };
