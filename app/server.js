@@ -85,7 +85,7 @@ app.get('/scrape', async (req, res) => {
                     const extraDetail = row.querySelector("div:nth-child(5)")?.innerText.replace(' LEK', '').trim() || "0";
                     const vat = row.querySelector("div:nth-child(6)")?.innerText.replace('VAT:', '').trim() || "N/A";
 
-                    items.push([itemName, unitPrice, totalPrice, quantity, extraDetail, vat]);
+                    items.push([itemName, unitPrice, totalPrice, quantity, extraDetail, vat].slice(0, 6));
                 });
 
                 return items;
@@ -98,7 +98,7 @@ app.get('/scrape', async (req, res) => {
                 continue;
             }
 
-            const updateValuesSheet2 = invoiceData.map(item => [null, null, ...item]);
+            const updateValuesSheet2 = invoiceData.map(item => item.slice(0, 6));
 
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
