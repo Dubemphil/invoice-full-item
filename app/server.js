@@ -75,17 +75,20 @@ app.get('/scrape', async (req, res) => {
 
             const invoiceData = await page.evaluate(() => {
                 const items = [];
-                const itemRows = document.querySelectorAll(".invoice-items-list");
+                const itemRows = document.querySelectorAll(".invoice-items-list div");
 
                 itemRows.forEach((row) => {
-                    const itemName = row.querySelector("div:nth-child(1)")?.innerText.trim() || "N/A";
-                    const unitPrice = row.querySelector("div:nth-child(2)")?.innerText.replace(' LEK', '').trim() || "0";
-                    const totalPrice = row.querySelector("div:nth-child(3)")?.innerText.replace(' LEK', '').trim() || "0";
-                    const quantity = row.querySelector("div:nth-child(4)")?.innerText.trim() || "0";
-                    const extraDetail = row.querySelector("div:nth-child(5)")?.innerText.replace(' LEK', '').trim() || "0";
-                    const vat = row.querySelector("div:nth-child(6)")?.innerText.replace('VAT:', '').trim() || "N/A";
+                    const columns = row.querySelectorAll("div");
+                    if (columns.length < 6) return;
 
-                    items.push([itemName, unitPrice, totalPrice, quantity, extraDetail, vat].slice(0, 6));
+                    const itemName = columns[0]?.innerText.trim() || "N/A";
+                    const unitPrice = columns[1]?.innerText.replace(' LEK', '').trim() || "0";
+                    const totalPrice = columns[2]?.innerText.replace(' LEK', '').trim() || "0";
+                    const quantity = columns[3]?.innerText.trim() || "0";
+                    const extraDetail = columns[4]?.innerText.replace(' LEK', '').trim() || "0";
+                    const vat = columns[5]?.innerText.replace('VAT:', '').trim() || "N/A";
+
+                    items.push([itemName, unitPrice, totalPrice, quantity, extraDetail, vat]);
                 });
 
                 return items;
@@ -98,7 +101,7 @@ app.get('/scrape', async (req, res) => {
                 continue;
             }
 
-            const updateValuesSheet2 = invoiceData.map(item => item.slice(0, 6));
+            const updateValuesSheet2 = invoiceData;
 
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
