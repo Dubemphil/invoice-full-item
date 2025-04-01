@@ -46,7 +46,6 @@ app.get('/scrape', async (req, res) => {
         const rows = data.values;
         let extractedData = [];
         let currentRowSheet2 = 2;
-        let currentRowSheet3 = 2;
 
         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
             const invoiceLink = rows[rowIndex][0];
@@ -58,7 +57,7 @@ app.get('/scrape', async (req, res) => {
             console.log(`🔄 Processing row ${rowIndex + 1} - ${invoiceLink}`);
 
             let navigationSuccess = false;
-            for (let attempt = 1; attempt <= 3; attempt++) { // Retry mechanism
+            for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
                     await page.goto(invoiceLink, { waitUntil: 'networkidle2', timeout: 30000 });
                     navigationSuccess = true;
@@ -76,91 +75,51 @@ app.get('/scrape', async (req, res) => {
             await new Promise(resolve => setTimeout(resolve, 3000));
 
             const invoiceData = await page.evaluate(() => {
-                const getText = (xpath) => {
-                    const element = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                    return element ? element.innerText.trim().replace('TVSH', 'VAT') : 'N/A';
-                };
-
-                const extractInvoiceNumber = () => {
-                    const fullText = getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[1]/h4');
-                    const match = fullText.match(/\d+\/\d+/);
-                    return match ? match[0] : 'N/A';
-                };
-
-                const extractItems = () => {
-                    let items = [];
-                    const showMoreBtn = document.querySelector("button.show-more");
-                    if (showMoreBtn) {
-                        showMoreBtn.click();
-                    }
-                    
-                    const itemNodes = document.evaluate("/html/body/app-root/app-verify-invoice/div/section[3]/div/ul/li/ul/li", document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
-                    let currentNode = itemNodes.iterateNext();
-                    while (currentNode) {
-                        const itemParts = currentNode.innerText.trim().replace('TVSH', 'VAT').split('\n');
-                        if (itemParts.length >= 3) {
-                            items.push([itemParts[0], itemParts[1], itemParts[2]]);
-                        } else {
-                            items.push([itemParts[0], itemParts[1] || '', '']);
-                        }
-                        currentNode = itemNodes.iterateNext();
-                    }
-                    return items.length > 0 ? items : [['N/A', 'N/A', 'N/A']];
-                };
-
-                return {
-                    businessName: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/ul/li[1]'),
-                    invoiceNumber: extractInvoiceNumber(),
-                    items: extractItems(),
-                    grandTotal: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[2]/h1'),
-                    vat: getText('/html/body/app-root/app-verify-invoice/div/section[1]/div/div[2]/small[2]/strong'),
-                    invoiceType: getText('/html/body/app-root/app-verify-invoice/div/section[2]/div/div/div/div[5]/p')
-                };
+                const items = [];
+                const itemBlocks = document.querySelectorAll(".invoice-items-list div");
+            
+                itemBlocks.forEach((block) => {
+                    const parts = block.innerText.trim().split('\n').filter(Boolean);
+            
+                    if (parts.length < 4) return; // Ensure we have enough parts
+            
+                    const itemName = parts[0].trim();
+                    const unitPrice = parts[1]?.replace(' LEK', '').trim() || 'N/A';
+                    const quantity = parts.find((p) => p.match(/^\d+X?$/)) || 'N/A'; // Find quantity pattern (e.g., "6X", "12", "0.86X")
+                    const totalPrice = parts.find((p) => p.includes(' LEK') && !p.includes('VAT:'))?.replace(' LEK', '').trim() || 'N/A';
+                    const vat = parts.find((p) => p.includes('VAT:'))?.replace('VAT:', '').trim() || 'N/A';
+            
+                    items.push([itemName, unitPrice, quantity, totalPrice, vat]);
+                });
+            
+                return items;
             });
-
+            
             console.log(`✅ Extracted Data for row ${rowIndex + 1}:`, invoiceData);
-
-            if (invoiceData.businessName === 'N/A' && invoiceData.invoiceNumber === 'N/A') {
+            
+            if (invoiceData.length === 0) {
                 console.warn(`⚠️ No valid data extracted from ${invoiceLink}`);
                 continue;
             }
-
-            // Update Sheet2 with invoice items
-            let updateValuesSheet2 = [[invoiceData.businessName, invoiceData.invoiceNumber, ...invoiceData.items[0] || ['', '', '']]];
-            for (let i = 1; i < invoiceData.items.length; i++) {
-                updateValuesSheet2.push([null, null, ...invoiceData.items[i]]);
-            }
-
+            
+            const updateValuesSheet2 = invoiceData.map(item => [null, null, ...item]);
+            
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
-                range: `Sheet2!A${currentRowSheet2}:E${currentRowSheet2 + updateValuesSheet2.length - 1}`,
+                range: `Sheet2!C${currentRowSheet2}:H${currentRowSheet2 + updateValuesSheet2.length - 1}`,
                 valueInputOption: 'RAW',
                 resource: { values: updateValuesSheet2 }
             });
+            
             currentRowSheet2 += updateValuesSheet2.length;
-
-            // Update Sheet3 with invoice summary
-            const updateValuesSheet3 = [[
-                invoiceData.businessName,
-                invoiceData.invoiceNumber,
-                invoiceData.grandTotal,
-                invoiceData.vat,
-                invoiceData.invoiceType
-            ]];
-
-            await sheets.spreadsheets.values.update({
-                spreadsheetId: sheetId,
-                range: `Sheet3!A${currentRowSheet3}:E${currentRowSheet3}`,
-                valueInputOption: 'RAW',
-                resource: { values: updateValuesSheet3 }
-            });
-            currentRowSheet3++;
-
+            
             extractedData.push(invoiceData);
         }
 
-        await browser.close();
+        await browser.close(); // ✅ Moved outside the loop
+
         res.json({ success: true, message: "Scraping completed", data: extractedData });
+
     } catch (error) {
         console.error("❌ Error during scraping:", error);
         res.status(500).json({ success: false, message: "Scraping failed", error: error.toString() });
