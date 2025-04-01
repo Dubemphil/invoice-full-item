@@ -22,7 +22,7 @@ jobs:
       - name: Build and Push Docker Image to Docker Hub
         run: |
           IMAGE_TAG=${{ github.sha }}
-          docker build --no-cache -t ${{ secrets.DOCKER_HUB_USERNAME }}/invoice-full-item:$IMAGE_TAG .
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/invoice-full-item:$IMAGE_TAG .
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/invoice-full-item:$IMAGE_TAG
 
       - name: Authenticate with Google Cloud
