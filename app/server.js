@@ -23,19 +23,6 @@ const PORT = process.env.PORT || 8080;
 
 app.get('/scrape', async (req, res) => {
     try {
-        console.log("📌 Using Google Sheet ID:", process.env.GOOGLE_SHEET_ID);
-        const sheetId = process.env.GOOGLE_SHEET_ID;
-
-        const { data } = await sheets.spreadsheets.values.get({
-            spreadsheetId: sheetId,
-            range: 'Sheet1!A:A',
-        });
-
-        if (!data.values) {
-            console.warn("⚠️ No data found in Sheet1!");
-            return res.json({ success: false, message: "No data in Sheet1" });
-        }
-
         const browser = await puppeteer.launch({ 
             headless: true,
             ignoreHTTPSErrors: true,
@@ -50,8 +37,16 @@ app.get('/scrape', async (req, res) => {
         const page = await browser.newPage();
         await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
 
+        const sheetId = process.env.GOOGLE_SHEET_ID;
+        const { data } = await sheets.spreadsheets.values.get({
+            spreadsheetId: sheetId,
+            range: 'Sheet1!A:A',
+        });
+
         const rows = data.values;
         let extractedData = [];
+        let currentRowSheet2 = 2;
+        let currentRowSheet3 = 2;
 
         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
             const invoiceLink = rows[rowIndex][0];
@@ -108,17 +103,15 @@ app.get('/scrape', async (req, res) => {
                 continue;
             }
 
-            try {
-                console.log(`📌 Updating Sheet2 with extracted data:`, invoiceData);
-                await sheets.spreadsheets.values.append({
-                    spreadsheetId: sheetId,
-                    range: "Sheet2!C:H",
-                    valueInputOption: "RAW",
-                    resource: { values: invoiceData }
-                });
-            } catch (apiError) {
-                console.error(`❌ Failed to update Google Sheets: ${apiError.message}`);
-            }
+            const updateValuesSheet2 = invoiceData.map(item => [null, null, ...item]);
+
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: sheetId,
+                range: `Sheet2!C${currentRowSheet2}:H${currentRowSheet2 + updateValuesSheet2.length - 1}`,
+                valueInputOption: 'RAW',
+                resource: { values: updateValuesSheet2 }
+            });
+            currentRowSheet2 += updateValuesSheet2.length;
 
             extractedData.push(invoiceData);
         }
