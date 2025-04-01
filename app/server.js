@@ -44,7 +44,9 @@ app.get('/scrape', async (req, res) => {
         });
 
         const rows = data.values;
+        let extractedData = [];
         let currentRowSheet2 = 2;
+        let currentRowSheet3 = 2;
 
         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
             const invoiceLink = rows[rowIndex][0];
@@ -75,18 +77,18 @@ app.get('/scrape', async (req, res) => {
 
             const invoiceData = await page.evaluate(() => {
                 const items = [];
-                const itemRows = document.querySelectorAll(".invoice-items-list div");
+                const itemBlocks = document.querySelectorAll(".invoice-items-list div");
 
-                itemRows.forEach((row) => {
-                    const columns = row.querySelectorAll("div");
-                    if (columns.length < 6) return;
+                itemBlocks.forEach((block) => {
+                    const parts = block.innerText.trim().split('\n');
+                    if (parts.length < 5) return;
 
-                    const itemName = columns[0]?.innerText.trim() || "N/A";
-                    const unitPrice = columns[1]?.innerText.replace(' LEK', '').trim() || "0";
-                    const totalPrice = columns[2]?.innerText.replace(' LEK', '').trim() || "0";
-                    const quantity = columns[3]?.innerText.trim() || "0";
-                    const extraDetail = columns[4]?.innerText.replace(' LEK', '').trim() || "0";
-                    const vat = columns[5]?.innerText.replace('VAT:', '').trim() || "N/A";
+                    const itemName = parts[0];
+                    const unitPrice = parts[1].replace(' LEK', '').trim();
+                    const totalPrice = parts[2].replace(' LEK', '').trim();
+                    const quantity = parts[3].trim();
+                    const extraDetail = parts[4].replace(' LEK', '').trim();
+                    const vat = parts[5] ? parts[5].replace('VAT:', '').trim() : 'N/A';
 
                     items.push([itemName, unitPrice, totalPrice, quantity, extraDetail, vat]);
                 });
@@ -101,7 +103,7 @@ app.get('/scrape', async (req, res) => {
                 continue;
             }
 
-            const updateValuesSheet2 = invoiceData;
+            const updateValuesSheet2 = invoiceData.map(item => [null, null, ...item]);
 
             await sheets.spreadsheets.values.update({
                 spreadsheetId: sheetId,
@@ -110,10 +112,12 @@ app.get('/scrape', async (req, res) => {
                 resource: { values: updateValuesSheet2 }
             });
             currentRowSheet2 += updateValuesSheet2.length;
+
+            extractedData.push(invoiceData);
         }
 
         await browser.close();
-        res.json({ success: true, message: "Scraping completed" });
+        res.json({ success: true, message: "Scraping completed", data: extractedData });
     } catch (error) {
         console.error("❌ Error during scraping:", error);
         res.status(500).json({ success: false, message: "Scraping failed", error: error.toString() });
